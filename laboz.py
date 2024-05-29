@@ -48,6 +48,13 @@ def extraire_donnees_labexia(texte):
     
     valeurs_nutritionnelles = extraire_valeurs_nutritionnelles(texte, regex_valeurs)
     
+    # Debugging statements
+    st.write("## Informations Générales:")
+    st.write(informations_generales)
+    
+    st.write("## Valeurs Nutritionnelles Brutes:")
+    st.write(valeurs_nutritionnelles)
+    
     df_generales = pd.DataFrame(informations_generales.items(), columns=['Information', 'Valeur'])
     df_valeurs = pd.DataFrame(valeurs_nutritionnelles, columns=colonnes)
     
@@ -93,3 +100,4 @@ if uploaded_file is not None:
 
     st.write("## Valeurs Nutritionnelles:")
     st.dataframe(df_valeurs)
+
