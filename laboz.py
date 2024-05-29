@@ -42,7 +42,7 @@ def extraire_donnees_labe(fichier):
 
     # Extraction des valeurs nutritionnelles
     valeurs_nutritionnelles = []
-    for match in re.finditer(r'CHIMIE\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n', texte, re.DOTALL):
+    for match in re.finditer(r'CHIMIE\s+(.*?)\s+(.*?)\s+(.*?)\s+(.*?)\s+(.*?)\s+(.*?)\s+(.*?)\s+(.*?)\s+(.*?)\s+(.*?)\s+(.*?)\s+', texte, re.DOTALL):
         valeurs_nutritionnelles.append([
             match.group(1).strip(),
             match.group(2).strip(),
@@ -54,7 +54,8 @@ def extraire_donnees_labe(fichier):
             match.group(8).strip(),
             match.group(9).strip(),
             match.group(10).strip(),
-            match.group(11).strip()
+            match.group(11).strip(),
+            match.group(12).strip()
         ])
 
     # Création du DataFrame
@@ -62,14 +63,15 @@ def extraire_donnees_labe(fichier):
         'Détermination',
         'Méthode',
         'Unité',
-        'Résultats',
+        'Résultat',
         'Spécification',
         'Incertitude',
         'HPD',
         'Lipides rapportés à l\'HPD 82',
         'SST rapportés à l\'HPD 82',
         'Rapport collagène/protéine',
-        'Poids net'
+        'Poids net',
+        'Horodatage'
     ])
 
     # Ajout des informations générales au DataFrame
@@ -77,7 +79,6 @@ def extraire_donnees_labe(fichier):
         df.loc[len(df)] = [cle, '', '', valeur, '', '', '', '', '', '', '']
 
     return df
-
 
 def extraire_donnees_labe_carrefour(fichier):
     """
