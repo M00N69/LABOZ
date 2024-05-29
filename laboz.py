@@ -28,22 +28,28 @@ def extraire_donnees_labexia(texte):
         pandas.DataFrame: DataFrame contenant les données extraites.
     """
     regex_generales = {
-        'Demande d\'analyse': r'Demande d\'analyse\s*:\s*(.+)',
-        'Echantillon reçu le': r'Echantillon reçu le\s*:\s*(\d{2}/\d{2}/\d{4})',
-        'Echantillon analysé le': r'Echantillon analysé le\s*:\s*(\d{2}/\d{2}/\d{4})',
-        'Dénomination': r'Dénomination\s*:\s*(.+)',
-        'Conditionnement': r'Conditionnement\s*:\s*(.+)',
-        'Code produit client': r'Code produit client\s*:\s*(.+)',
-        'Lot': r'Lot\s*:\s*(.+)',
-        'N° d\'échantillon': r'N° d\'échantillon\s*:\s*(.+)'
+        "Demande d'analyse": r"Demande d'analyse\s*:\s*(.+)",
+        "Echantillon reçu le": r"Echantillon reçu le\s*:\s*(\d{2}/\d{2}/\d{4})",
+        "Echantillon analysé le": r"Echantillon analysé le\s*:\s*(\d{2}/\d{2}/\d{4})",
+        "Dénomination": r"Dénomination\s*:\s*(.+)",
+        "Conditionnement": r"Conditionnement\s*:\s*(.+)",
+        "Code produit client": r"Code produit client\s*:\s*(.+)",
+        "Lot": r"Lot\s*:\s*(.+)",
+        "N° d'échantillon": r"N° d'échantillon\s*:\s*(.+)"
     }
     
     informations_generales = extraire_informations_generales(texte, regex_generales)
     
-    regex_valeurs = r'CHIMIE\n(.+?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n(.*?)\n'
+    regex_valeurs = (
+        r"CHIMIE\s+"
+        r"Détermination\s+Méthode\s+Unité\s+Résultat\s+Spécification\s+Incertitude\s+"
+        r"(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+"
+        r"Conclusion\s+"
+        r"(.+)"
+    )
+    
     colonnes = [
-        'Détermination', 'Unité', 'Résultat', 'Règlementation', 'Etiquetage',
-        'CDC', 'Incertitude'
+        "Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude", "Conclusion"
     ]
     
     valeurs_nutritionnelles = extraire_valeurs_nutritionnelles(texte, regex_valeurs)
@@ -55,7 +61,7 @@ def extraire_donnees_labexia(texte):
     st.write("## Valeurs Nutritionnelles Brutes:")
     st.write(valeurs_nutritionnelles)
     
-    df_generales = pd.DataFrame(informations_generales.items(), columns=['Information', 'Valeur'])
+    df_generales = pd.DataFrame(informations_generales.items(), columns=["Information", "Valeur"])
     df_valeurs = pd.DataFrame(valeurs_nutritionnelles, columns=colonnes)
     
     return df_generales, df_valeurs
@@ -72,7 +78,10 @@ def extraire_valeurs_nutritionnelles(texte, regex):
     """Extrait les valeurs nutritionnelles d'un texte donné en utilisant une regex."""
     valeurs_nutritionnelles = []
     for match in re.finditer(regex, texte, re.DOTALL):
-        valeurs_nutritionnelles.append([group.strip() if group else '' for group in match.groups()])
+        valeurs = [group.strip() if group else '' for group in match.groups()]
+        # Ensure the length matches the expected columns
+        if len(valeurs) == 7:
+            valeurs_nutritionnelles.append(valeurs)
     return valeurs_nutritionnelles
 
 st.title("Extracteur de Rapports d'Analyses LABEXIA")
@@ -100,4 +109,3 @@ if uploaded_file is not None:
 
     st.write("## Valeurs Nutritionnelles:")
     st.dataframe(df_valeurs)
-
