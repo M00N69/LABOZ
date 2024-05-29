@@ -1,5 +1,3 @@
-!pip install PyPDF2 openpyxl
-
 import PyPDF2
 import pandas as pd
 import re
