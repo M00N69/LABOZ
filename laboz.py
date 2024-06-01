@@ -84,6 +84,24 @@ def extraire_valeurs_nutritionnelles(texte, regex):
             valeurs_nutritionnelles.append(valeurs)
     return valeurs_nutritionnelles
 
+# URL du GIF
+gif_url = "https://media.giphy.com/media/3o7bu3XilJ5BOiSGic/giphy.gif"
+
+# Définir le CSS pour l'arrière-plan
+css_background = f"""
+<style>
+body {{
+    margin: 0;
+    padding: 0;
+    background: url("{gif_url}") no-repeat center center fixed;
+    background-size: cover;
+}}
+</style>
+"""
+
+# Injecter le CSS dans l'application Streamlit
+st.markdown(css_background, unsafe_allow_html=True)
+
 st.title("Extracteur de Rapports d'Analyses LABEXIA")
 
 uploaded_file = st.file_uploader("Choisissez le rapport d'analyse (PDF)", type=["pdf"])
