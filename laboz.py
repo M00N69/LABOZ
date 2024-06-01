@@ -85,7 +85,7 @@ def extraire_valeurs_nutritionnelles(texte, regex):
     return valeurs_nutritionnelles
 
 # URL du GIF
-gif_url = "https://media.giphy.com/media/3o7bu3XilJ5BOiSGic/giphy.gif"
+gif_url = "https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExd3czbTB1ZHk0bGVzeThjMm1zcW12eHNoNzYzcGliOHI1dHlkdzZiOSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/jS2YNIz8bPi2kaaV1E/giphy.gif"
 
 # Définir le CSS pour l'arrière-plan
 css_background = f"""
