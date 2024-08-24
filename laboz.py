@@ -67,6 +67,7 @@ def extraire_informations_generales(texte):
 
 def extraire_analyse_chimique(texte):
     """Extrait les données d'analyse chimique du texte."""
+    # Adjusted regex to handle multiline entries and various spacing issues
     regex_ligne = (
         r"([\w\s\(\)\-]+?)\s+"   # Détermination
         r"([\w\s\(\)\-]+?)\s+"   # Méthode
@@ -77,7 +78,7 @@ def extraire_analyse_chimique(texte):
     )
     
     analyses = []
-    for match in re.finditer(regex_ligne, texte):
+    for match in re.finditer(regex_ligne, texte, re.MULTILINE):
         analyses.append(match.groups())
     
     colonnes = [
