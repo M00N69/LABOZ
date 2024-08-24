@@ -27,6 +27,7 @@ def extraire_donnees_labexia(texte):
     Returns:
         pandas.DataFrame: DataFrame contenant les données extraites.
     """
+    # Extraction des informations générales
     regex_generales = {
         "Demande d'analyse": r"Demande d'analyse\s*:\s*(.+)",
         "Echantillon reçu le": r"Echantillon reçu le\s*:\s*(\d{2}/\d{2}/\d{4})",
@@ -40,12 +41,12 @@ def extraire_donnees_labexia(texte):
     
     informations_generales = extraire_informations_generales(texte, regex_generales)
     
+    # Regex for capturing multi-line chemical analysis
     regex_valeurs = (
         r"CHIMIE\s+"
         r"Détermination\s+Méthode\s+Unité\s+Résultat\s+Spécification\s+Incertitude\s+"
-        r"(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+"
-        r"Conclusion\s+"
-        r"(.+)"
+        r"([\s\S]+?)"
+        r"Conclusion\s+(.+)"
     )
     
     colonnes = [
@@ -77,11 +78,17 @@ def extraire_informations_generales(texte, regex_dict):
 def extraire_valeurs_nutritionnelles(texte, regex):
     """Extrait les valeurs nutritionnelles d'un texte donné en utilisant une regex."""
     valeurs_nutritionnelles = []
-    for match in re.finditer(regex, texte, re.DOTALL):
-        valeurs = [group.strip() if group else '' for group in match.groups()]
-        # Ensure the length matches the expected columns
-        if len(valeurs) == 7:
-            valeurs_nutritionnelles.append(valeurs)
+    match = re.search(regex, texte, re.DOTALL)
+    if match:
+        bloc = match.group(1)
+        conclusion = match.group(2)
+        lignes = bloc.strip().split("\n")
+        for ligne in lignes:
+            if ligne.strip():
+                valeurs = [val.strip() for val in re.split(r'\s{2,}', ligne)]
+                if len(valeurs) == 6:
+                    valeurs.append(conclusion)
+                    valeurs_nutritionnelles.append(valeurs)
     return valeurs_nutritionnelles
 
 # URL du GIF
