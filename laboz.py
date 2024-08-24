@@ -15,25 +15,22 @@ def extraire_texte_pdf(fichier):
 
 def preprocess_text(texte):
     """Normalise le texte pour faciliter l'analyse."""
-    # Simplifying preprocessing to avoid over-complication
-    texte = re.sub(r'\n+', '\n', texte)  # Normalizing line breaks
-    # Insert a newline after key segments for better readability in the next steps
-    segments = [
-        'Demande d\'analyse', 'Echantillon reçu le', 'Echantillon analysé le',
-        'T° à réception', 'Dénomination', 'Conditionnement', 'Code produit client',
-        'Nombre d\'uvc analysées', 'Numéro bon de commande', 'Famille de produit',
-        'N° client', 'Lot', 'N° d\'échantillon', 'CHIMIE', 'Conclusion'
-    ]
-    for segment in segments:
-        texte = re.sub(f'({segment})', r'\1\n', texte)
+    # Replace missing delimiters and normalize text
+    texte = texte.replace("Données Client :", "\nDonnées Client :")
+    texte = texte.replace("CHIMIE", "\nCHIMIE\n")
+    texte = texte.replace("Conclusion", "\nConclusion\n")
+    
+    # Handle specific merged lines
+    texte = re.sub(r'([a-z])([A-Z])', r'\1\n\2', texte)  # Separate lower-case followed by upper-case
+
     return texte
 
 def segmenter_texte(texte):
     """Segmente le texte en sections pour une extraction plus facile."""
     try:
         sections = {}
-        sections["general_info"], reste = re.split(r"CHIMIE", texte, 1)
-        sections["chemical_analysis"], sections["conclusion"] = re.split(r"Conclusion", reste, 1)
+        sections["general_info"], reste = re.split(r"\nCHIMIE\n", texte, 1)
+        sections["chemical_analysis"], sections["conclusion"] = re.split(r"\nConclusion\n", reste, 1)
         return sections
     except ValueError:
         st.error("Erreur lors de la segmentation du texte. Assurez-vous que le format du document est correct.")
@@ -123,6 +120,10 @@ if uploaded_file is not None:
     
     # Prétraitement du texte pour normalisation
     texte_brut = preprocess_text(texte_brut)
+    
+    # Display the preprocessed text for debugging
+    st.write("## Texte Prétraité:")
+    st.text(texte_brut)
     
     # Segmentation du texte
     sections = segmenter_texte(texte_brut)
