@@ -73,7 +73,7 @@ def extraire_analyse_chimique(texte):
         # Check if the line is the start of a new entry
         if re.match(r'^[A-Za-z]', ligne):
             if current_entry:
-                data.append(current_entry)
+                data.append(' '.join(current_entry))  # Join multiline entries
             current_entry = [ligne]  # Start new entry
         else:
             if current_entry:
@@ -83,13 +83,12 @@ def extraire_analyse_chimique(texte):
                 continue
     
     if current_entry:
-        data.append(current_entry)
+        data.append(' '.join(current_entry))
 
     # Splitting each item into the expected columns
     structured_data = []
     for entry in data:
-        full_entry = ' '.join(entry)  # Join multi-line entries
-        elements = re.split(r'\s{2,}', full_entry)  # Split on multiple spaces
+        elements = re.split(r'\s{2,}', entry)  # Split on multiple spaces
         if len(elements) >= 6:
             structured_data.append(elements[:6])  # Ensure exactly 6 columns
 
@@ -101,7 +100,7 @@ def extraire_analyse_chimique(texte):
 
 def extraire_conclusion(texte):
     """Extrait la conclusion du rapport."""
-    match = re.search(r"Conclusion\s+(.+)", texte)
+    match = re.search(r"Conclusion\s*:\s*(.+)", texte, re.DOTALL)
     return match.group(1).strip() if match else "Non spécifié"
 
 # Streamlit App Interface
@@ -117,6 +116,10 @@ if uploaded_file is not None:
 
     # Extraction du texte brut du PDF
     texte_brut = extraire_texte_pdf(pdf_path)
+    
+    # Display the raw extracted text for debugging
+    st.write("## Texte Brut Extrait:")
+    st.text(texte_brut)
     
     # Prétraitement du texte pour normalisation
     texte_brut = preprocess_text(texte_brut)
