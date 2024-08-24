@@ -4,13 +4,7 @@ import re
 import PyPDF2
 
 def extraire_texte_pdf(fichier):
-    """
-    Extrait le texte d'un fichier PDF.
-    Args:
-        fichier (str): Chemin vers le fichier PDF.
-    Returns:
-        str: Texte extrait du fichier PDF.
-    """
+    """Extrait le texte d'un fichier PDF."""
     with open(fichier, 'rb') as pdf_file:
         pdf_reader = PyPDF2.PdfReader(pdf_file)
         texte = ""
@@ -19,15 +13,20 @@ def extraire_texte_pdf(fichier):
             texte += page.extract_text()
         return texte
 
-def extraire_donnees_labexia(texte):
-    """
-    Extrait les données d'un rapport LABEXIA à partir du texte brut.
-    Args:
-        texte (str): Texte brut du rapport LABEXIA.
-    Returns:
-        pandas.DataFrame: DataFrame contenant les données extraites.
-    """
-    # Extraction des informations générales
+def segmenter_texte(texte):
+    """Segmente le texte en sections pour une extraction plus facile."""
+    sections = {
+        "general_info": "",
+        "chemical_analysis": ""
+    }
+    
+    # Separate general info and chemical analysis based on common keywords
+    sections["general_info"], sections["chemical_analysis"] = re.split(r"CHIMIE", texte, 1)
+    
+    return sections
+
+def extraire_informations_generales(texte):
+    """Extrait les informations générales du texte."""
     regex_generales = {
         "Demande d'analyse": r"Demande d'analyse\s*:\s*(.+)",
         "Echantillon reçu le": r"Echantillon reçu le\s*:\s*(\d{2}/\d{2}/\d{4})",
@@ -39,57 +38,27 @@ def extraire_donnees_labexia(texte):
         "N° d'échantillon": r"N° d'échantillon\s*:\s*(.+)"
     }
     
-    informations_generales = extraire_informations_generales(texte, regex_generales)
+    informations_generales = {}
+    for cle, regex in regex_generales.items():
+        match = re.search(regex, texte)
+        informations_generales[cle] = match.group(1).strip() if match else None
     
-    # Regex for capturing multi-line chemical analysis
-    regex_valeurs = (
-        r"CHIMIE\s+"
-        r"Détermination\s+Méthode\s+Unité\s+Résultat\s+Spécification\s+Incertitude\s+"
-        r"([\s\S]+?)"
-        r"Conclusion\s+(.+)"
-    )
+    return informations_generales
+
+def extraire_analyse_chimique(texte):
+    """Extrait les données d'analyse chimique du texte."""
+    regex_ligne = r"(\w[\w\s]*?)\s+([\w\s]*?)\s+([\w/%]*?)\s+([\d,\.]*?)\s+([\w<=/\.]*?)\s+([\d,\.]*?)\s+([\w]*)"
+    
+    analyses = []
+    for match in re.finditer(regex_ligne, texte):
+        analyses.append(match.groups())
     
     colonnes = [
         "Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude", "Conclusion"
     ]
     
-    valeurs_nutritionnelles = extraire_valeurs_nutritionnelles(texte, regex_valeurs)
-    
-    # Debugging statements
-    st.write("## Informations Générales:")
-    st.write(informations_generales)
-    
-    st.write("## Valeurs Nutritionnelles Brutes:")
-    st.write(valeurs_nutritionnelles)
-    
-    df_generales = pd.DataFrame(informations_generales.items(), columns=["Information", "Valeur"])
-    df_valeurs = pd.DataFrame(valeurs_nutritionnelles, columns=colonnes)
-    
-    return df_generales, df_valeurs
-
-def extraire_informations_generales(texte, regex_dict):
-    """Extrait les informations générales d'un texte donné en utilisant un dictionnaire de regex."""
-    informations_generales = {}
-    for cle, regex in regex_dict.items():
-        match = re.search(regex, texte)
-        informations_generales[cle] = match.group(1).strip() if match else None
-    return informations_generales
-
-def extraire_valeurs_nutritionnelles(texte, regex):
-    """Extrait les valeurs nutritionnelles d'un texte donné en utilisant une regex."""
-    valeurs_nutritionnelles = []
-    match = re.search(regex, texte, re.DOTALL)
-    if match:
-        bloc = match.group(1)
-        conclusion = match.group(2)
-        lignes = bloc.strip().split("\n")
-        for ligne in lignes:
-            if ligne.strip():
-                valeurs = [val.strip() for val in re.split(r'\s{2,}', ligne)]
-                if len(valeurs) == 6:
-                    valeurs.append(conclusion)
-                    valeurs_nutritionnelles.append(valeurs)
-    return valeurs_nutritionnelles
+    df_analyse = pd.DataFrame(analyses, columns=colonnes)
+    return df_analyse
 
 # URL du GIF
 gif_url = "https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExbTV5dWI1M3dheG92aGI2NXRydXpuMDBqeHhvOWY3ZWhtOG1qNDM4diZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT9IgN8YKRhByRBzMI/giphy-downsized-large.gif"
@@ -119,16 +88,19 @@ if uploaded_file is not None:
 
     # Extraction du texte brut du PDF
     texte_brut = extraire_texte_pdf(pdf_path)
-
-    # Affichage du texte brut (optionnel)
-    st.write("## Texte Brut du Rapport:")
-    st.text(texte_brut) 
-
-    # Extraction des données du texte brut
-    df_generales, df_valeurs = extraire_donnees_labexia(texte_brut)
     
+    # Segmentation du texte
+    sections = segmenter_texte(texte_brut)
+    
+    # Extraction des informations générales
+    informations_generales = extraire_informations_generales(sections["general_info"])
+    
+    # Extraction des analyses chimiques
+    df_analyse_chimique = extraire_analyse_chimique(sections["chemical_analysis"])
+
     st.write("## Informations Générales:")
+    df_generales = pd.DataFrame(informations_generales.items(), columns=["Information", "Valeur"])
     st.dataframe(df_generales)
 
-    st.write("## Valeurs Nutritionnelles:")
-    st.dataframe(df_valeurs)
+    st.write("## Analyses Chimiques:")
+    st.dataframe(df_analyse_chimique)
