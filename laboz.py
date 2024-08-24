@@ -45,6 +45,54 @@ def segmenter_texte(texte):
         return None
     return sections
 
+def extraire_informations_generales(texte):
+    """Extrait les informations générales du texte."""
+    regex_generales = {
+        "Demande d'analyse": r"Demande d'analyse\s*:\s*(.+)",
+        "Echantillon reçu le": r"Echantillon reçu le\s*:\s*(\d{2}/\d{2}/\d{4})",
+        "Echantillon analysé le": r"Echantillon analysé le\s*:\s*(\d{2}/\d{2}/\d{4})",
+        "Dénomination": r"Dénomination\s*:\s*(.+)",
+        "Conditionnement": r"Conditionnement\s*:\s*(.+)",
+        "Code produit client": r"Code produit client\s*:\s*(.+)",
+        "Lot": r"Lot\s*:\s*(.+)",
+        "N° d'échantillon": r"N° d'échantillon\s*:\s*(.+)"
+    }
+    
+    informations_generales = {}
+    for cle, regex in regex_generales.items():
+        match = re.search(regex, texte)
+        informations_generales[cle] = match.group(1).strip() if match else None
+    
+    return informations_generales
+
+def extraire_analyse_chimique(texte):
+    """Extrait les données d'analyse chimique du texte."""
+    # Adjusted regex to handle multiline entries and various spacing issues
+    regex_ligne = (
+        r"([\w\s\(\)\-]+?)\s+"   # Détermination
+        r"([\w\s\(\)\-]+?)\s+"   # Méthode
+        r"([\w/%]+)\s+"          # Unité
+        r"([\d,\.]+)\s+"         # Résultat
+        r"([\w<=/\.]+)\s+"       # Spécification
+        r"([\d,\.]*)\s*"         # Incertitude (facultatif)
+    )
+    
+    analyses = []
+    for match in re.finditer(regex_ligne, texte, re.MULTILINE):
+        analyses.append(match.groups())
+    
+    colonnes = [
+        "Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude"
+    ]
+    
+    df_analyse = pd.DataFrame(analyses, columns=colonnes).replace(r'^\s*$', None, regex=True).dropna(how='all')
+    return df_analyse
+
+def extraire_conclusion(texte):
+    """Extrait la conclusion du rapport."""
+    match = re.search(r"Conclusion\s+(.+)", texte)
+    return match.group(1).strip() if match else "Non spécifié"
+
 # Streamlit App Interface
 st.title("Extracteur de Rapports d'Analyses LABEXIA")
 
@@ -86,4 +134,3 @@ if uploaded_file is not None:
         st.write("## Conclusion:")
         conclusion = extraire_conclusion(sections["conclusion"])
         st.write(conclusion)
-
