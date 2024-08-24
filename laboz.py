@@ -1,17 +1,15 @@
 import streamlit as st
 import pandas as pd
 import re
-import PyPDF2
+import fitz  # PyMuPDF
 
 def extraire_texte_pdf(fichier):
-    """Extrait le texte d'un fichier PDF."""
-    with open(fichier, 'rb') as pdf_file:
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
-        texte = ""
-        for page_num in range(len(pdf_reader.pages)):
-            page = pdf_reader.pages[page_num]
-            texte += page.extract_text()
-        return texte
+    """Extrait le texte d'un fichier PDF en utilisant PyMuPDF."""
+    texte = ""
+    with fitz.open(fichier) as pdf_file:
+        for page in pdf_file:
+            texte += page.get_text()
+    return texte
 
 def preprocess_text(texte):
     """Normalise le texte pour faciliter l'analyse."""
@@ -61,50 +59,42 @@ def extraire_informations_generales(texte):
 
 def extraire_analyse_chimique(texte):
     """Extrait les données d'analyse chimique du texte."""
-    # Splitting the text into lines
     lignes = texte.split('\n')
     data = []
-
-    # Variables to keep track of multiline entries
-    current_line = None
-
+    current_entry = []
+    
     for ligne in lignes:
-        # Remove leading and trailing spaces
         ligne = ligne.strip()
-
-        # Skip empty lines
         if not ligne:
             continue
 
-        # Check if the line looks like a new determination or part of a previous one
+        # Check if the line is the start of a new entry
         if re.match(r'^[A-Za-z]', ligne):
-            # If we have a current line being built, append it first
-            if current_line:
-                data.append(current_line)
-            current_line = [ligne]  # Start a new entry with the current line
+            if current_entry:
+                data.append(current_entry)
+            current_entry = [ligne]  # Start new entry
         else:
-            # This line is a continuation of the previous one
-            if current_line:
-                current_line[-1] += " " + ligne
+            if current_entry:
+                current_entry.append(ligne)
             else:
-                # Unexpected continuation without a start; log or handle as needed
+                # Unexpected continuation without a start
                 continue
-
-    # Add the last line if it exists
-    if current_line:
-        data.append(current_line)
+    
+    if current_entry:
+        data.append(current_entry)
 
     # Splitting each item into the expected columns
     structured_data = []
-    for item in data:
-        elements = re.split(r'\s{2,}', item[0])
+    for entry in data:
+        full_entry = ' '.join(entry)  # Join multi-line entries
+        elements = re.split(r'\s{2,}', full_entry)  # Split on multiple spaces
         if len(elements) >= 6:
             structured_data.append(elements[:6])  # Ensure exactly 6 columns
 
     # Create DataFrame
     colonnes = ["Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude"]
     df_analyse = pd.DataFrame(structured_data, columns=colonnes)
-
+    
     return df_analyse
 
 def extraire_conclusion(texte):
@@ -149,3 +139,4 @@ if uploaded_file is not None:
         st.write("## Conclusion:")
         conclusion = extraire_conclusion(sections["conclusion"])
         st.write(conclusion)
+
