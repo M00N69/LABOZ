@@ -15,14 +15,13 @@ def extraire_texte_pdf(fichier):
 
 def segmenter_texte(texte):
     """Segmente le texte en sections pour une extraction plus facile."""
-    sections = {
-        "general_info": "",
-        "chemical_analysis": ""
-    }
-    
-    # Separate general info and chemical analysis based on common keywords
-    sections["general_info"], sections["chemical_analysis"] = re.split(r"CHIMIE", texte, 1)
-    
+    sections = {}
+    try:
+        sections["general_info"], reste = re.split(r"CHIMIE", texte, 1)
+        sections["chemical_analysis"], sections["conclusion"] = re.split(r"Conclusion", reste, 1)
+    except ValueError:
+        st.error("Erreur lors de la segmentation du texte. Assurez-vous que le format du document est correct.")
+        return None
     return sections
 
 def extraire_informations_generales(texte):
@@ -47,7 +46,16 @@ def extraire_informations_generales(texte):
 
 def extraire_analyse_chimique(texte):
     """Extrait les données d'analyse chimique du texte."""
-    regex_ligne = r"(\w[\w\s]*?)\s+([\w\s]*?)\s+([\w/%]*?)\s+([\d,\.]*?)\s+([\w<=/\.]*?)\s+([\d,\.]*?)\s+([\w]*)"
+    # This regex is designed to capture each line of chemical data, including potential multi-line entries.
+    regex_ligne = (
+        r"([\w\s\(\)\-]*)\s+"   # Détermination
+        r"([\w\s\(\)\-]*)\s+"   # Méthode
+        r"([\w/%]*)\s+"         # Unité
+        r"([\d,\.]*)\s+"        # Résultat
+        r"([\w<=/\.]*)\s+"      # Spécification
+        r"([\d,\.]*)\s+"        # Incertitude
+        r"([\w]*)"              # Conclusion
+    )
     
     analyses = []
     for match in re.finditer(regex_ligne, texte):
@@ -57,25 +65,15 @@ def extraire_analyse_chimique(texte):
         "Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude", "Conclusion"
     ]
     
-    df_analyse = pd.DataFrame(analyses, columns=colonnes)
+    df_analyse = pd.DataFrame(analyses, columns=colonnes).replace(r'^\s*$', None, regex=True).dropna(how='all')
     return df_analyse
 
-# URL du GIF
-gif_url = "https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExbTV5dWI1M3dheG92aGI2NXRydXpuMDBqeHhvOWY3ZWhtOG1qNDM4diZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT9IgN8YKRhByRBzMI/giphy-downsized-large.gif"
+def extraire_conclusion(texte):
+    """Extrait la conclusion du rapport."""
+    match = re.search(r"Conclusion\s+(.+)", texte)
+    return match.group(1).strip() if match else "Non spécifié"
 
-# Définir le CSS pour l'arrière-plan
-css_background = f"""
-<style>
-.stApp {{
-    background: url("{gif_url}") no-repeat center center fixed;
-    background-size: cover;
-}}
-</style>
-"""
-
-# Injecter le CSS dans l'application Streamlit
-st.markdown(css_background, unsafe_allow_html=True)
-
+# Streamlit App Interface
 st.title("Extracteur de Rapports d'Analyses LABEXIA")
 
 uploaded_file = st.file_uploader("Choisissez le rapport d'analyse (PDF)", type=["pdf"])
@@ -92,15 +90,22 @@ if uploaded_file is not None:
     # Segmentation du texte
     sections = segmenter_texte(texte_brut)
     
-    # Extraction des informations générales
-    informations_generales = extraire_informations_generales(sections["general_info"])
-    
-    # Extraction des analyses chimiques
-    df_analyse_chimique = extraire_analyse_chimique(sections["chemical_analysis"])
+    if sections:
+        # Extraction des informations générales
+        informations_generales = extraire_informations_generales(sections["general_info"])
+        
+        # Extraction des analyses chimiques
+        df_analyse_chimique = extraire_analyse_chimique(sections["chemical_analysis"])
 
-    st.write("## Informations Générales:")
-    df_generales = pd.DataFrame(informations_generales.items(), columns=["Information", "Valeur"])
-    st.dataframe(df_generales)
+        # Extraction de la conclusion
+        conclusion = extraire_conclusion(sections["conclusion"])
 
-    st.write("## Analyses Chimiques:")
-    st.dataframe(df_analyse_chimique)
+        st.write("## Informations Générales:")
+        df_generales = pd.DataFrame(informations_generales.items(), columns=["Information", "Valeur"])
+        st.dataframe(df_generales)
+
+        st.write("## Analyses Chimiques:")
+        st.dataframe(df_analyse_chimique)
+        
+        st.write("## Conclusion:")
+        st.write(conclusion)
