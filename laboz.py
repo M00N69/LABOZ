@@ -20,8 +20,12 @@ def preprocess_text(texte):
     texte = texte.replace("CHIMIE", "\nCHIMIE\n")
     texte = texte.replace("Conclusion", "\nConclusion\n")
     
-    # Handle specific merged lines
-    texte = re.sub(r'([a-z])([A-Z])', r'\1\n\2', texte)  # Separate lower-case followed by upper-case
+    # Insert line breaks between sections that are concatenated together
+    texte = re.sub(r'([a-z])([A-Z])', r'\1\n\2', texte)  # Lowercase followed by uppercase
+    texte = re.sub(r'(\d)([A-Z])', r'\1\n\2', texte)      # Digit followed by uppercase
+
+    # Additional cleanup if necessary
+    texte = texte.replace("Page 1/2", "").replace("Page 2/2", "").strip()
 
     return texte
 
@@ -97,7 +101,7 @@ def extraire_analyse_chimique(texte):
 
 def extraire_conclusion(texte):
     """Extrait la conclusion du rapport."""
-    match = re.search(r"Conclusion\s*:\s*(.+)", texte, re.DOTALL)
+    match = re.search(r"Conclusion\s*(.+)", texte, re.DOTALL)
     return match.group(1).strip() if match else "Non spécifié"
 
 # Streamlit App Interface
