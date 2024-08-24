@@ -15,33 +15,29 @@ def extraire_texte_pdf(fichier):
 
 def preprocess_text(texte):
     """Normalise le texte pour faciliter l'analyse."""
-    texte = re.sub(r'\n+', '\n', texte)
-    texte = re.sub(r'(Demande d\'analyse.+?)(?=Echantillon reçu le)', r'\1\n', texte)
-    texte = re.sub(r'(Echantillon reçu le.+?)(?=Echantillon analysé le)', r'\1\n', texte)
-    texte = re.sub(r'(Echantillon analysé le.+?)(?=T° à réception)', r'\1\n', texte)
-    texte = re.sub(r'(T° à réception .+?)(?=Dénomination)', r'\1\n', texte)
-    texte = re.sub(r'(Dénomination.+?)(?=Conditionnement)', r'\1\n', texte)
-    texte = re.sub(r'(Conditionnement.+?)(?=Code produit client)', r'\1\n', texte)
-    texte = re.sub(r'(Code produit client.+?)(?=Nombre d\'uvc analysées)', r'\1\n', texte)
-    texte = re.sub(r'(Nombre d\'uvc analysées.+?)(?=Numéro bon de commande)', r'\1\n', texte)
-    texte = re.sub(r'(Numéro bon de commande.+?)(?=Famille de produit)', r'\1\n', texte)
-    texte = re.sub(r'(Famille de produit.+?)(?=N° client)', r'\1\n', texte)
-    texte = re.sub(r'(N° client.+?)(?=Lot)', r'\1\n', texte)
-    texte = re.sub(r'(Lot.+?)(?=Données Client)', r'\1\n', texte)
-    texte = re.sub(r'(Données Client.+?)(?=N° d\'échantillon)', r'\1\n', texte)
-    texte = re.sub(r'(N° d\'échantillon.+?)(?=CHIMIE)', r'\1\n', texte)
+    # Simplifying preprocessing to avoid over-complication
+    texte = re.sub(r'\n+', '\n', texte)  # Normalizing line breaks
+    # Insert a newline after key segments for better readability in the next steps
+    segments = [
+        'Demande d\'analyse', 'Echantillon reçu le', 'Echantillon analysé le',
+        'T° à réception', 'Dénomination', 'Conditionnement', 'Code produit client',
+        'Nombre d\'uvc analysées', 'Numéro bon de commande', 'Famille de produit',
+        'N° client', 'Lot', 'N° d\'échantillon', 'CHIMIE', 'Conclusion'
+    ]
+    for segment in segments:
+        texte = re.sub(f'({segment})', r'\1\n', texte)
     return texte
 
 def segmenter_texte(texte):
     """Segmente le texte en sections pour une extraction plus facile."""
-    sections = {}
     try:
+        sections = {}
         sections["general_info"], reste = re.split(r"CHIMIE", texte, 1)
         sections["chemical_analysis"], sections["conclusion"] = re.split(r"Conclusion", reste, 1)
+        return sections
     except ValueError:
         st.error("Erreur lors de la segmentation du texte. Assurez-vous que le format du document est correct.")
         return None
-    return sections
 
 def extraire_informations_generales(texte):
     """Extrait les informations générales du texte."""
@@ -59,7 +55,7 @@ def extraire_informations_generales(texte):
     informations_generales = {}
     for cle, regex in regex_generales.items():
         match = re.search(regex, texte)
-        informations_generales[cle] = match.group(1).strip() if match else None
+        informations_generales[cle] = match.group(1).strip() if match else "Non spécifié"
     
     return informations_generales
 
@@ -68,31 +64,13 @@ def extraire_analyse_chimique(texte):
     lignes = texte.split('\n')
     data = []
     
-    for i in range(1, len(lignes), 2):
-        try:
-            ligne_principale = lignes[i].strip()
-            ligne_suivante = lignes[i+1].strip()
-            
-            # Handling cases where the method and unit appear on the next line
-            if re.match(r'^[A-Za-z]', ligne_suivante):
-                # This is a new determination line; start a new row
-                continue
-
-            # Splitting the line based on expected spaces
-            elements = re.split(r'\s{2,}', ligne_principale + ' ' + ligne_suivante)
-            
-            # Handling potential overflow into the next line
-            if len(elements) < 7 and i+2 < len(lignes):
-                ligne_suivante_suivante = lignes[i+2].strip()
-                elements.extend(re.split(r'\s{2,}', ligne_suivante_suivante))
-            
-            if len(elements) == 6:  # We expect six columns (7th is optional)
-                elements.append('')  # Adding empty entry for Incertitude
-            
-            data.append(elements[:7])  # Make sure we don't get more than 7 elements
-            
-        except IndexError:
+    for ligne in lignes:
+        if ligne.strip() == "":
             continue
+        # Splitting the line based on expected spaces
+        elements = re.split(r'\s{2,}', ligne.strip())
+        if len(elements) >= 6:
+            data.append(elements[:6])  # Consider only up to 6 columns to match the expected format
 
     # Creating DataFrame
     colonnes = ["Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude"]
@@ -141,4 +119,3 @@ if uploaded_file is not None:
         st.write("## Conclusion:")
         conclusion = extraire_conclusion(sections["conclusion"])
         st.write(conclusion)
-
