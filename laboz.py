@@ -13,66 +13,6 @@ def extraire_texte_pdf(fichier):
             texte += page.extract_text()
         return texte
 
-def segmenter_texte(texte):
-    """Segmente le texte en sections pour une extraction plus facile."""
-    sections = {}
-    try:
-        sections["general_info"], reste = re.split(r"CHIMIE", texte, 1)
-        sections["chemical_analysis"], sections["conclusion"] = re.split(r"Conclusion", reste, 1)
-    except ValueError:
-        st.error("Erreur lors de la segmentation du texte. Assurez-vous que le format du document est correct.")
-        return None
-    return sections
-
-def extraire_informations_generales(texte):
-    """Extrait les informations générales du texte."""
-    regex_generales = {
-        "Demande d'analyse": r"Demande d'analyse\s*:\s*(.+)",
-        "Echantillon reçu le": r"Echantillon reçu le\s*:\s*(\d{2}/\d{2}/\d{4})",
-        "Echantillon analysé le": r"Echantillon analysé le\s*:\s*(\d{2}/\d{2}/\d{4})",
-        "Dénomination": r"Dénomination\s*:\s*(.+)",
-        "Conditionnement": r"Conditionnement\s*:\s*(.+)",
-        "Code produit client": r"Code produit client\s*:\s*(.+)",
-        "Lot": r"Lot\s*:\s*(.+)",
-        "N° d'échantillon": r"N° d'échantillon\s*:\s*(.+)"
-    }
-    
-    informations_generales = {}
-    for cle, regex in regex_generales.items():
-        match = re.search(regex, texte)
-        informations_generales[cle] = match.group(1).strip() if match else None
-    
-    return informations_generales
-
-def extraire_analyse_chimique(texte):
-    """Extrait les données d'analyse chimique du texte."""
-    # This regex is designed to capture each line of chemical data, including potential multi-line entries.
-    regex_ligne = (
-        r"([\w\s\(\)\-]*)\s+"   # Détermination
-        r"([\w\s\(\)\-]*)\s+"   # Méthode
-        r"([\w/%]*)\s+"         # Unité
-        r"([\d,\.]*)\s+"        # Résultat
-        r"([\w<=/\.]*)\s+"      # Spécification
-        r"([\d,\.]*)\s+"        # Incertitude
-        r"([\w]*)"              # Conclusion
-    )
-    
-    analyses = []
-    for match in re.finditer(regex_ligne, texte):
-        analyses.append(match.groups())
-    
-    colonnes = [
-        "Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude", "Conclusion"
-    ]
-    
-    df_analyse = pd.DataFrame(analyses, columns=colonnes).replace(r'^\s*$', None, regex=True).dropna(how='all')
-    return df_analyse
-
-def extraire_conclusion(texte):
-    """Extrait la conclusion du rapport."""
-    match = re.search(r"Conclusion\s+(.+)", texte)
-    return match.group(1).strip() if match else "Non spécifié"
-
 # Streamlit App Interface
 st.title("Extracteur de Rapports d'Analyses LABEXIA")
 
@@ -87,25 +27,6 @@ if uploaded_file is not None:
     # Extraction du texte brut du PDF
     texte_brut = extraire_texte_pdf(pdf_path)
     
-    # Segmentation du texte
-    sections = segmenter_texte(texte_brut)
-    
-    if sections:
-        # Extraction des informations générales
-        informations_generales = extraire_informations_generales(sections["general_info"])
-        
-        # Extraction des analyses chimiques
-        df_analyse_chimique = extraire_analyse_chimique(sections["chemical_analysis"])
-
-        # Extraction de la conclusion
-        conclusion = extraire_conclusion(sections["conclusion"])
-
-        st.write("## Informations Générales:")
-        df_generales = pd.DataFrame(informations_generales.items(), columns=["Information", "Valeur"])
-        st.dataframe(df_generales)
-
-        st.write("## Analyses Chimiques:")
-        st.dataframe(df_analyse_chimique)
-        
-        st.write("## Conclusion:")
-        st.write(conclusion)
+    # Affichage du texte brut pour débogage
+    st.write("## Texte Brut du Rapport:")
+    st.text(texte_brut)
