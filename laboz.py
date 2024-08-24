@@ -15,9 +15,7 @@ def extraire_texte_pdf(fichier):
 
 def preprocess_text(texte):
     """Normalise le texte pour faciliter l'analyse."""
-    # Replace multiple newlines with a single newline
     texte = re.sub(r'\n+', '\n', texte)
-    # Ensure the general info lines are split properly
     texte = re.sub(r'(Demande d\'analyse.+?)(?=Echantillon reçu le)', r'\1\n', texte)
     texte = re.sub(r'(Echantillon reçu le.+?)(?=Echantillon analysé le)', r'\1\n', texte)
     texte = re.sub(r'(Echantillon analysé le.+?)(?=T° à réception)', r'\1\n', texte)
@@ -67,25 +65,38 @@ def extraire_informations_generales(texte):
 
 def extraire_analyse_chimique(texte):
     """Extrait les données d'analyse chimique du texte."""
-    # Adjusted regex to handle multiline entries and various spacing issues
-    regex_ligne = (
-        r"([\w\s\(\)\-]+?)\s+"   # Détermination
-        r"([\w\s\(\)\-]+?)\s+"   # Méthode
-        r"([\w/%]+)\s+"          # Unité
-        r"([\d,\.]+)\s+"         # Résultat
-        r"([\w<=/\.]+)\s+"       # Spécification
-        r"([\d,\.]*)\s*"         # Incertitude (facultatif)
-    )
+    lignes = texte.split('\n')
+    data = []
     
-    analyses = []
-    for match in re.finditer(regex_ligne, texte, re.MULTILINE):
-        analyses.append(match.groups())
-    
-    colonnes = [
-        "Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude"
-    ]
-    
-    df_analyse = pd.DataFrame(analyses, columns=colonnes).replace(r'^\s*$', None, regex=True).dropna(how='all')
+    for i in range(1, len(lignes), 2):
+        try:
+            ligne_principale = lignes[i].strip()
+            ligne_suivante = lignes[i+1].strip()
+            
+            # Handling cases where the method and unit appear on the next line
+            if re.match(r'^[A-Za-z]', ligne_suivante):
+                # This is a new determination line; start a new row
+                continue
+
+            # Splitting the line based on expected spaces
+            elements = re.split(r'\s{2,}', ligne_principale + ' ' + ligne_suivante)
+            
+            # Handling potential overflow into the next line
+            if len(elements) < 7 and i+2 < len(lignes):
+                ligne_suivante_suivante = lignes[i+2].strip()
+                elements.extend(re.split(r'\s{2,}', ligne_suivante_suivante))
+            
+            if len(elements) == 6:  # We expect six columns (7th is optional)
+                elements.append('')  # Adding empty entry for Incertitude
+            
+            data.append(elements[:7])  # Make sure we don't get more than 7 elements
+            
+        except IndexError:
+            continue
+
+    # Creating DataFrame
+    colonnes = ["Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude"]
+    df_analyse = pd.DataFrame(data, columns=colonnes)
     return df_analyse
 
 def extraire_conclusion(texte):
@@ -117,11 +128,7 @@ if uploaded_file is not None:
         # Extraction des informations générales
         informations_generales = extraire_informations_generales(sections["general_info"])
         
-        # Affichage du texte de la section des analyses chimiques pour débogage
-        st.write("## Texte Brut de l'Analyse Chimique:")
-        st.text(sections["chemical_analysis"])
-
-        # Tentative d'extraction des analyses chimiques
+        # Extraction des analyses chimiques
         df_analyse_chimique = extraire_analyse_chimique(sections["chemical_analysis"])
 
         st.write("## Informations Générales:")
@@ -134,3 +141,4 @@ if uploaded_file is not None:
         st.write("## Conclusion:")
         conclusion = extraire_conclusion(sections["conclusion"])
         st.write(conclusion)
+
