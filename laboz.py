@@ -1,14 +1,16 @@
 import streamlit as st
 import pandas as pd
 import re
-import fitz  # PyMuPDF
+import PyPDF2
 
 def extraire_texte_pdf(fichier):
-    """Extrait le texte d'un fichier PDF en utilisant PyMuPDF."""
-    texte = ""
-    with fitz.open(fichier) as pdf_file:
-        for page in pdf_file:
-            texte += page.get_text()
+    """Extrait le texte d'un fichier PDF en utilisant PyPDF2."""
+    with open(fichier, 'rb') as pdf_file:
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        texte = ""
+        for page_num in range(len(pdf_reader.pages)):
+            page = pdf_reader.pages[page_num]
+            texte += page.extract_text()
     return texte
 
 def preprocess_text(texte):
@@ -139,4 +141,3 @@ if uploaded_file is not None:
         st.write("## Conclusion:")
         conclusion = extraire_conclusion(sections["conclusion"])
         st.write(conclusion)
-
