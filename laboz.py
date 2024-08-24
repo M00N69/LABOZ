@@ -61,20 +61,50 @@ def extraire_informations_generales(texte):
 
 def extraire_analyse_chimique(texte):
     """Extrait les données d'analyse chimique du texte."""
+    # Splitting the text into lines
     lignes = texte.split('\n')
     data = []
-    
-    for ligne in lignes:
-        if ligne.strip() == "":
-            continue
-        # Splitting the line based on expected spaces
-        elements = re.split(r'\s{2,}', ligne.strip())
-        if len(elements) >= 6:
-            data.append(elements[:6])  # Consider only up to 6 columns to match the expected format
 
-    # Creating DataFrame
+    # Variables to keep track of multiline entries
+    current_line = None
+
+    for ligne in lignes:
+        # Remove leading and trailing spaces
+        ligne = ligne.strip()
+
+        # Skip empty lines
+        if not ligne:
+            continue
+
+        # Check if the line looks like a new determination or part of a previous one
+        if re.match(r'^[A-Za-z]', ligne):
+            # If we have a current line being built, append it first
+            if current_line:
+                data.append(current_line)
+            current_line = [ligne]  # Start a new entry with the current line
+        else:
+            # This line is a continuation of the previous one
+            if current_line:
+                current_line[-1] += " " + ligne
+            else:
+                # Unexpected continuation without a start; log or handle as needed
+                continue
+
+    # Add the last line if it exists
+    if current_line:
+        data.append(current_line)
+
+    # Splitting each item into the expected columns
+    structured_data = []
+    for item in data:
+        elements = re.split(r'\s{2,}', item[0])
+        if len(elements) >= 6:
+            structured_data.append(elements[:6])  # Ensure exactly 6 columns
+
+    # Create DataFrame
     colonnes = ["Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude"]
-    df_analyse = pd.DataFrame(data, columns=colonnes)
+    df_analyse = pd.DataFrame(structured_data, columns=colonnes)
+
     return df_analyse
 
 def extraire_conclusion(texte):
