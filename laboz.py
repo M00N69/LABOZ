@@ -1,19 +1,23 @@
 import re
 import pandas as pd
 import streamlit as st
-from tika import parser  # Import de Tika
+import PyPDF2
 
-def extraire_texte_pdf_tika(fichier):
-    """Extrait le texte d'un fichier PDF en utilisant Tika."""
-    raw = parser.from_file(fichier)
-    texte = raw['content']  # Extraction du texte brut
+def extraire_texte_pdf(fichier):
+    """Extrait le texte d'un fichier PDF en utilisant PyPDF2."""
+    with open(fichier, 'rb') as pdf_file:
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        texte = ""
+        for page_num in range(len(pdf_reader.pages)):
+            page = pdf_reader.pages[page_num]
+            texte += page.extract_text()
     return texte
 
 def preprocess_text(texte):
     """Normalise le texte pour faciliter l'analyse."""
-    texte = re.sub(r'\s+', ' ', texte)  # Remplace plusieurs espaces par un seul
-    texte = re.sub(r'([a-z])([A-Z])', r'\1\n\2', texte)  # Sépare minuscule et majuscule
-    texte = re.sub(r'(\d)([A-Z])', r'\1\n\2', texte)  # Sépare les chiffres des majuscules
+    texte = re.sub(r'\s+', ' ', texte)  # Replace multiple spaces with a single space
+    texte = re.sub(r'([a-z])([A-Z])', r'\1\n\2', texte)  # Separate lowercase followed by uppercase
+    texte = re.sub(r'(\d)([A-Z])', r'\1\n\2', texte)  # Separate digits followed by uppercase
     texte = texte.replace("CHIMIE", "\nCHIMIE\n")
     texte = texte.replace("Conclusion", "\nConclusion\n")
     return texte
@@ -23,7 +27,7 @@ def extraire_analyse_chimique(texte):
     lignes = texte.split('\n')
     data = []
     current_entry = []
-
+    
     for ligne in lignes:
         ligne = ligne.strip()
         if not ligne:
@@ -39,7 +43,7 @@ def extraire_analyse_chimique(texte):
                 current_entry.append(ligne)
             else:
                 continue  # Unexpected continuation without a start
-
+    
     if current_entry:
         data.append(' '.join(current_entry))
 
@@ -56,7 +60,7 @@ def extraire_analyse_chimique(texte):
     # Create DataFrame with appropriate column names
     colonnes = ["Détermination", "Méthode", "Unité", "Résultat", "Spécification", "Incertitude"]
     df_analyse = pd.DataFrame(structured_data, columns=colonnes)
-
+    
     return df_analyse
 
 # Streamlit App Interface
@@ -70,23 +74,22 @@ if uploaded_file is not None:
     with open(pdf_path, 'wb') as f:
         f.write(uploaded_file.getbuffer())
 
-    # Extraction du texte brut du PDF via Tika
-    texte_brut = extraire_texte_pdf_tika(pdf_path)
-
-    # Affichage du texte brut extrait pour le débogage
+    # Extraction du texte brut du PDF
+    texte_brut = extraire_texte_pdf(pdf_path)
+    
+    # Display the raw extracted text for debugging
     st.write("## Texte Brut Extrait:")
     st.text(texte_brut)
-
+    
     # Prétraitement du texte pour normalisation
     texte_brut = preprocess_text(texte_brut)
-
-    # Affichage du texte prétraité pour le débogage
+    
+    # Display the preprocessed text for debugging
     st.write("## Texte Prétraité:")
     st.text(texte_brut)
-
+    
     # Extraction des analyses chimiques
     df_analyse_chimique = extraire_analyse_chimique(texte_brut)
 
     st.write("## Analyses Chimiques:")
     st.dataframe(df_analyse_chimique)
-
